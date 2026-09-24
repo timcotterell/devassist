@@ -1,3 +1,5 @@
+import './telemetry.js';
+
 import http from 'node:http';
 import crypto from 'node:crypto';
 import express from 'express';
@@ -10,6 +12,11 @@ import { expressMiddleware } from '@as-integrations/express5';
 import { typeDefs, resolvers } from './schema.js';
 import { runDiagnostic } from './diagnostics.js';
 import { logger } from './logger.js';
+
+import {
+  tracingMiddleware,
+  withSpan
+} from './tracing.js';
 
 const port = Number(process.env.PORT ?? 4002);
 const app = express();
@@ -43,6 +50,8 @@ app.use(
   })
 );
 
+app.use(tracingMiddleware);
+
 const server = new ApolloServer({
   schema: buildSubgraphSchema([{ typeDefs, resolvers }]),
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })]
@@ -57,12 +66,23 @@ app.get('/health', (_req, res) => {
 app.get('/api/diagnostics/:serviceId', (req, res) => {
   req.log.info(
     {
-      serviceId: req.params.serviceId
+      serviceId: req.params.serviceId,
+      traceId: req.traceId
     },
     'Diagnostic execution started'
   );
 
-  const result = runDiagnostic(req.params.serviceId);
+  const result = withSpan(
+    'diagnostic.run',
+    {
+      'devassist.service.id':
+        req.params.serviceId
+    },
+    () =>
+      runDiagnostic(
+        req.params.serviceId
+      )
+  );
 
   if (!result) {
     req.log.warn(
@@ -78,7 +98,8 @@ app.get('/api/diagnostics/:serviceId', (req, res) => {
   req.log.info(
     {
       serviceId: req.params.serviceId,
-      diagnosticStatus: result.status
+      diagnosticStatus: result.status,
+      traceId: req.traceId
     },
     'Diagnostic execution completed'
   );

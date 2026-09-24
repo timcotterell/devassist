@@ -1,6 +1,13 @@
+import './telemetry.js';
+
 import crypto from 'node:crypto';
 import pinoHttp from 'pino-http';
 import { logger } from './logger.js';
+
+import {
+  currentTraceHeaders,
+  tracingMiddleware
+} from './tracing.js';
 import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
@@ -60,6 +67,8 @@ app.use(
   })
 );
 
+app.use(tracingMiddleware);
+
 function requireAuth(req, res, next) {
   try {
     const token = parseBearerToken(req.headers.authorization);
@@ -116,7 +125,8 @@ app.get('/api/diagnostics/:serviceId', requireAuth, async (req, res) => {
   try {
     req.log.info(
       {
-        serviceId: req.params.serviceId
+        serviceId: req.params.serviceId,
+        traceId: req.traceId
       },
       'Running service diagnostic'
     );
@@ -125,7 +135,8 @@ app.get('/api/diagnostics/:serviceId', requireAuth, async (req, res) => {
       `${supportBaseUrl}/api/diagnostics/${encodeURIComponent(req.params.serviceId)}`,
       {
         headers: {
-          'x-request-id': req.id
+          'x-request-id': req.id,
+          ...currentTraceHeaders()
         }
       }
     );
@@ -169,11 +180,30 @@ const gateway = new ApolloGateway({
     return new RemoteGraphQLDataSource({
       url,
 
-      willSendRequest({ request, context }) {
-        if (context?.requestId && request.http?.headers) {
+      willSendRequest({
+        request,
+        context
+      }) {
+        if (!request.http?.headers) {
+          return;
+        }
+
+        if (context?.requestId) {
           request.http.headers.set(
             'x-request-id',
             context.requestId
+          );
+        }
+
+        for (
+          const [key, value]
+          of Object.entries(
+            context?.traceHeaders ?? {}
+          )
+        ) {
+          request.http.headers.set(
+            key,
+            value
           );
         }
       }
@@ -195,7 +225,8 @@ app.use(
   expressMiddleware(server, {
     context: async ({ req }) => ({
       user: req.user,
-      requestId: req.id
+      requestId: req.id,
+      traceHeaders: currentTraceHeaders()
     })
   })
 );
