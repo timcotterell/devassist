@@ -1,0 +1,38 @@
+{
+  "name": "devassist",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Developer support automation platform demonstrating Node.js, GraphQL federation, React, JWT, REST diagnostics, and MCP.",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "mcp"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n catalog,support,gateway,web \"npm run dev:catalog\" \"npm run dev:support\" \"npm run dev:gateway:wait\" \"npm run dev:web:wait\"",
+    "dev:catalog": "npm run dev --workspace @devassist/catalog",
+    "dev:support": "npm run dev --workspace @devassist/support",
+    "dev:gateway": "npm run dev --workspace @devassist/gateway",
+    "dev:web": "npm run dev --workspace @devassist/web",
+    "dev:mcp": "npm run dev --workspace @devassist/mcp",
+    "dev:gateway:wait": "wait-on tcp:4001 http-get://localhost:4002/health && npm run dev:gateway",
+    "dev:web:wait": "wait-on http-get://localhost:4000/api/health && npm run dev:web",
+    "build": "npm run build --workspace @devassist/web",
+    "test": "npm run test --workspaces --if-present",
+    "start:catalog": "npm run start --workspace @devassist/catalog",
+    "start:support": "npm run start --workspace @devassist/support",
+    "start:gateway": "npm run start --workspace @devassist/gateway"
+  },
+  "allowScripts": {
+    "protobufjs@7.6.6": true,
+    "@apollo/protobufjs@1.2.8": true
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "wait-on": "^9.1.0"
+  }
+}

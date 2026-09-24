@@ -1,0 +1,35 @@
+services:
+  catalog:
+    build:
+      context: .
+      dockerfile: services/catalog/Dockerfile
+    environment:
+      PORT: 4001
+    ports:
+      - "4001:4001"
+
+  support:
+    build:
+      context: .
+      dockerfile: services/support/Dockerfile
+    environment:
+      PORT: 4002
+    ports:
+      - "4002:4002"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    depends_on:
+      - catalog
+      - support
+    environment:
+      PORT: 4000
+      CATALOG_URL: http://catalog:4001/graphql
+      SUPPORT_URL: http://support:4002/graphql
+      JWT_SECRET: local-compose-secret
+      DEVASSIST_USER: developer
+      DEVASSIST_PASSWORD: demo-password
+    ports:
+      - "4000:4000"
