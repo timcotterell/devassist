@@ -1,0 +1,29 @@
+import pino from 'pino';
+
+const transport =
+  process.env.NODE_ENV !== 'production'
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname'
+        }
+      }
+    : undefined;
+
+export const logger = pino({
+  name: 'devassist-gateway',
+  level: process.env.LOG_LEVEL ?? 'info',
+
+  redact: {
+    paths: [
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'res.headers["set-cookie"]'
+    ],
+    censor: '[REDACTED]'
+  },
+
+  transport
+});
